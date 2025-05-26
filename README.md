@@ -16,7 +16,7 @@ Este repositório contém o notebook e o script desenvolvidos para a implementa�
 ## Como usar
 Para utilizar o sistema e o script, é necessário: 
 
-1. **Ter o Docker instalado**
+### 1. **Ter o Docker instalado**
    
 Antes de instalar o Docker, certifique-se de ter o WSL2 instalado. Execute no PowerShell:
 
@@ -26,7 +26,7 @@ wsl --install
 
 Instale o Docker a partir do seguinte link: https://www.docker.com/products/docker-desktop/
 
-2. **Instale as dependências**
+### 2. **Instale as dependências**
    
 Execute no terminal:
 
@@ -34,7 +34,7 @@ Execute no terminal:
 pip install -r requirements.txt
 ```
 
-3. **Inicie o Docker**
+### 3. **Inicie o Docker**
    
 Execute no PowerShell:
 
@@ -42,7 +42,7 @@ Execute no PowerShell:
 docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 ```
 
-4. **Insira o diretório lfw_funneled no diretório do projeto**
+### 4. **Insira o diretório lfw_funneled no diretório do projeto**
    
 A base está disponível em: https://www.kaggle.com/datasets/atulanandjha/lfwpeople/data 
 
