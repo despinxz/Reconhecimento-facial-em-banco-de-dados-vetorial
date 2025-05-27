@@ -49,7 +49,6 @@ def processa_imagens(dir, step=1):
 
     Args:
         dir: Nome do diretório que contém as fotos.
-        step: Parâmetro para indicar o intervalo de diretórios processados. Utilizado caso não seja necessário processar todos os diretórios contidos, economizando tempo de processamento.
     
     Returns:
         return: Vetor com as imagens processas em formato de PointStruct para serem inseridas na coleção.
