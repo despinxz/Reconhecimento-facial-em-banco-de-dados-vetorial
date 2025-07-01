@@ -11,8 +11,10 @@ from qdrant_client.http.models import Distance, VectorParams, PointStruct
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 from qdrant_client.models import Filter, SearchRequest
+import matplotlib.pyplot as plt
+from PIL import Image
 
-diretorio = "lfw_funneled"
+diretorio = "lfw_funneled_reduzido"
 nome_colecao = "lfw_faces"
 tamanho_vetor = 128     # Número de dimensões do embedding do face_recognition
 
@@ -46,61 +48,51 @@ def input_imagem():
     
     return file_name
 
-def processa_imagens_lfw(dir):
+def processa_imagem(caminho_imagem):
     '''
-    Função usada para processar todos os diretórios e fotos dentro de lfw_funneled.
+    Função usada para processar uma imagem passada como parâmetro.
 
     Args:
-        dir: Nome do diretório que contém as fotos.
+        caminho_imagem: Caminho da imagem passada como parâmetro.
     
     Returns:
         return: Vetor com as imagens processas em formato de PointStruct para serem inseridas na coleção.
     '''
-    pontos = []
-    diretorios = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
+    nome = caminho_imagem.split("\\\\")[-1].split('.')[0]
+    if not caminho_imagem.endswith(".jpg"):
+        return
+    
+    imagem = face_recognition.load_image_file(caminho_imagem)
+    embeddings = face_recognition.face_encodings(imagem)
 
-    for pessoa in tqdm(diretorios, desc=f"Processando imagens..."):
-        dir_pessoa = os.path.join(dir, pessoa)
+    if len(embeddings) == 0:
+        return    # Retorna se não encontrar rostos
 
-        for nome_arq in os.listdir(dir_pessoa):
-            if not nome_arq.endswith(".jpg"):
-                continue
+    embedding_pessoa = embeddings[0]    # Presume que o primeiro e único rosto encontrado será da pessoa nomeada
 
-            caminho_imagem = os.path.join(dir_pessoa, nome_arq)
-            imagem = face_recognition.load_image_file(caminho_imagem)
-            embeddings = face_recognition.face_encodings(imagem)
+    id_ponto = str(uuid.uuid4())    # ID único 
 
-            if len(embeddings) == 0:
-                continue    # Pula se não encontrar rostos
-
-            embedding_pessoa = embeddings[0]    # Presume que o primeiro e único rosto encontrado será da pessoa nomeada
-
-            id_ponto = str(uuid.uuid4())    # ID único 
-
-            # Cria estrutura de ponto para inserir na coleção
-            pontos.append(
-                PointStruct(
-                    id=id_ponto,
-                    vector=embedding_pessoa.tolist(),
-                    payload={"nome": pessoa, "arquivo": nome_arq}
-                )
+    # Cria estrutura de ponto para inserir na coleção
+    ponto = PointStruct(
+                id=id_ponto,
+                vector=embedding_pessoa.tolist(),
+                payload={"nome": nome, "arquivo": caminho_imagem}
             )
-        
-        return pontos
 
-################ A SER IMPLEMENTADA ################
-def insere_imagem_colecao(client, imagem):
+    return ponto
+    
+def insere_imagem_colecao(client, vetor_ponto_imagem):
     '''
     Função usada para inserir uma imagem na coleção do QDrant.
 
     Args:
         client: Conexão com QDrant.
-        imagem: Caminho da imagem a ser inserida.
+        imagem: Vetor de pontos da imagem.
     '''
+    client.upsert(collection_name="lfw_faces", points=vetor_ponto_imagem)
     return
 
-################ A SER IMPLEMENTADA ################
-def busca_imagens_semelhantes(client, imagem, top_k=5):
+def busca_imagens_semelhantes(client, vetor_ponto_imagem, top_k=5):
     '''
     Função usada para buscar as K imagens mais semelhantes na coleção.
 
@@ -112,18 +104,44 @@ def busca_imagens_semelhantes(client, imagem, top_k=5):
     Returns:
         return: Vetor com os dados das 5 imagens mais semelhantes.
     '''
-    return
+    resultado = client.search(collection_name="lfw_faces_reduzido", 
+                              query_vector=vetor_ponto_imagem, 
+                              limit=top_k)
+    
+    return resultado
+
+def exibe_resultados(semelhantes):
+    '''
+    Exibe imagens semelhantes com nome e score.
+
+    Args:
+        semelhantes: Lista de resultados da busca no QDrant.
+    '''
+    num_resultados = len(semelhantes)
+    plt.figure(figsize=(15, 5))
+
+    for i, item in enumerate(semelhantes):
+        payload = item.payload
+        nome = payload.get("nome", "Desconhecido")
+        arquivo = payload.get("arquivo")
+        score = item.score
+
+        try:
+            imagem = Image.open(arquivo)
+            plt.subplot(1, num_resultados, i + 1)
+            plt.imshow(imagem)
+            plt.axis("off")
+            plt.title(f"{nome}\nScore: {score:.2f}")
+        except Exception as e:
+            print(f"Erro ao carregar {arquivo}: {e}")
+
+    plt.tight_layout()
+    plt.show()
     
 if __name__ == '__main__':
-    # Inicia coleção no QDrant
     client = cria_conexao()
-
-    # Processa dataset do LFW
-    rostos = processa_imagens_lfw()
-    for pessoa in rostos:
-        insere_imagem_colecao(client, pessoa)
-
-    # Recebe input do usuário para comparação
     imagem = input_imagem()
-    insere_imagem_colecao(client, imagem)
-    semelhantes = busca_imagens_semelhantes(client, imagem, top_k=5)
+    vetor_ponto_imagem = processa_imagem(imagem)
+    semelhantes = busca_imagens_semelhantes(client, vetor_ponto_imagem.vector, top_k=5)
+    exibe_resultados(semelhantes)
+    # insere_imagem_colecao(vetor_ponto_imagem)
